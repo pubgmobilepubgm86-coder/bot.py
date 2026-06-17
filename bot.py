@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-⚡️ GALAXY MATRIX ENTERPRISE SYSTEM V5.0 PREMIUM ⚡️
+⚡️ GALAXY MATRIX ENTERPRISE SYSTEM V5.1 PREMIUM (PATCHED) ⚡️
 ==================================================
 🤖 Platform: aiogram 3.x Fast Framework
 📦 Database: SQLite3 Unified Cyber Schema
@@ -329,7 +329,7 @@ async def cmd_start_processor(message: Message):
 
     if user and user[1] == "approved":
         db.toggle_mode_flag(user_id, "is_dark_mode", 0)
-        await message.answer("💎 <b>CYBER MATRIX SYSTEM V5.0 DEPLOYED</b>\n\nBarcha algoritmik oqimlar yuklandi. Xush kelibsiz!", reply_markup=main_vip_menu)
+        await message.answer("💎 <b>CYBER MATRIX SYSTEM V5.1 DEPLOYED</b>\n\nBarcha algoritmik oqimlar yuklandi. Xush kelibsiz!", reply_markup=main_vip_menu)
     else:
         await message.answer("👋 <b>Yopiq yutuqli signallar portali boshqaruv markazi!</b>\n\nBot imkoniyatlarini ochish uchun verifikatsiya bosing:", reply_markup=register_menu)
 
@@ -642,9 +642,13 @@ async def dark_mines_scanner(message: Message):
     for step in random.sample(range(25), 5):
         grid[step // 5][step % 5] = "🔥"
         
+    # XATOLIK TUZATILGAN QISM: f-string ichida \n ishlatilmasligi uchun
+    # uni alohida o'zgaruvchiga oldik.
+    grid_string = "\n".join(" ".join(row) for row in grid)
+        
     await message.answer(
         f"💀 <b>DARK NET MINES QUANTUM BREACH</b> 💀\n\n"
-        f"{'\n'.join(' '.join(row) for row in grid)}\n\n"
+        f"{grid_string}\n\n"
         f"⚠️ O'ta maxfiy kiber tizim xaritasi."
     )
 
@@ -918,7 +922,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def mainframe_home_route():
-    return f"🚀 CYBER CORE OPERATIONAL V5.0 STATUS: OK. RUNNING 24/7. METRIC SYNCED AT: {datetime.now().strftime('%H:%M:%S')}"
+    return f"🚀 CYBER CORE OPERATIONAL V5.1 STATUS: OK. RUNNING 24/7. METRIC SYNCED AT: {datetime.now().strftime('%H:%M:%S')}"
 
 def start_flask_runtime():
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
@@ -955,7 +959,7 @@ async def main():
     asyncio.create_task(anti_sleep_ping_loop())
     
     print("=====================================================")
-    print("🔥 GALAXY MATRIX BOT ENGINE V5.0 FULLY OPERATIONAL 24/7!")
+    print("🔥 GALAXY MATRIX BOT ENGINE V5.1 FULLY OPERATIONAL 24/7!")
     print("=====================================================")
     
     await dp.start_polling(bot)
