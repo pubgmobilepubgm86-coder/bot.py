@@ -3,7 +3,7 @@ import asyncio
 import threading
 from flask import Flask
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -23,14 +23,26 @@ class UserState(StatesGroup):
 class AdminState(StatesGroup):
     waiting_for_description = State()
 
-# ----------------- TUGMALAR -----------------
+# ----------------- TUGMALAR (MENULAR) -----------------
+# 1. Start bosilganda chiqadigan menu
 user_menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="1 x bet")]
-    ],
+    keyboard=[[KeyboardButton(text="1 x bet")]],
     resize_keyboard=True
 )
 
+# 2. Admin qabul qilgandan keyin chiqadigan menu
+signal_menu = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="Signal olish")]],
+    resize_keyboard=True
+)
+
+# 3. "Signal olish" bosilganda chiqadigan menu
+apple_menu = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="APPLE OF FORTUNE🍎 UCHUN")]],
+    resize_keyboard=True
+)
+
+# Admin inline tugmalari
 class AdminAction(CallbackData, prefix="admin"):
     action: str
     user_id: int
@@ -47,10 +59,12 @@ def admin_inline_kb(user_id: int):
 
 # ----------------- FOYDALANUVCHI QISMI -----------------
 
+# /start bosilganda
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     await message.answer("Assalomu alaykum! Qaysi kantora tanlaysiz?", reply_markup=user_menu)
 
+# "1 x bet" bosilganda (Tugma yo'qoladi va rasm so'raladi)
 @dp.message(F.text == "1 x bet")
 async def choose_kantora(message: Message, state: FSMContext):
     text = (
@@ -58,9 +72,11 @@ async def choose_kantora(message: Message, state: FSMContext):
         "boshqa rasm yuborsangiz bot qabul qilmaydi.\n\n"
         "Botni bloklamang boʻlmasam id tasdiqlangan boʻlsa ham signal ola olmaysiz."
     )
-    await message.answer(text)
+    # reply_markup=ReplyKeyboardRemove() orqali "1 x bet" tugmasini yo'qotamiz
+    await message.answer(text, reply_markup=ReplyKeyboardRemove())
     await state.set_state(UserState.waiting_for_photo)
 
+# Rasm yuborilganda
 @dp.message(StateFilter(UserState.waiting_for_photo), F.photo)
 async def handle_photo(message: Message, state: FSMContext):
     user_id = message.from_user.id
@@ -69,15 +85,28 @@ async def handle_photo(message: Message, state: FSMContext):
     admin_text = f"👤 Yangi ID tasdiqlash so'rovi!\nFoydalanuvchi ID: {user_id}\nIsmi: {message.from_user.full_name}"
     await bot.send_photo(chat_id=ADMIN_ID, photo=photo_id, caption=admin_text, reply_markup=admin_inline_kb(user_id))
     
-    await message.answer("Tasdiqlanishini kuting...")
+    await message.answer("Tasdiqlanishini kuting...", reply_markup=ReplyKeyboardRemove())
     await state.clear() 
 
+# "Signal olish" tugmasi bosilganda (Tugma yo'qoladi va Apple of Fortune chiqadi)
+@dp.message(F.text == "Signal olish")
+async def process_signal_olish(message: Message):
+    await message.answer("Kerakli bo'limni tanlang 👇", reply_markup=apple_menu)
+
+# "APPLE OF FORTUNE🍎 UCHUN" tugmasi bosilganda
+@dp.message(F.text == "APPLE OF FORTUNE🍎 UCHUN")
+async def process_apple_fortune(message: Message):
+    await message.answer("🍎 Apple of Fortune o'yini uchun signallar paneli yuklanmoqda...")
+
+# Agar rasm o'rniga matn yuborsa
 @dp.message(StateFilter(UserState.waiting_for_photo))
 async def handle_not_photo(message: Message):
     await message.answer("Iltimos, faqat rasm (screenshot) yuboring.")
 
+
 # ----------------- ADMIN QISMI -----------------
 
+# Rad etish bosilganda
 @dp.callback_query(AdminAction.filter(F.action == "reject"))
 async def admin_reject(callback: CallbackQuery, callback_data: AdminAction):
     target_user_id = callback_data.user_id
@@ -88,6 +117,7 @@ async def admin_reject(callback: CallbackQuery, callback_data: AdminAction):
         await callback.answer("Xatolik: Foydalanuvchi botni bloklagan.", show_alert=True)
     await callback.answer()
 
+# Qabul qilish bosilganda
 @dp.callback_query(AdminAction.filter(F.action == "accept"))
 async def admin_accept(callback: CallbackQuery, callback_data: AdminAction, state: FSMContext):
     target_user_id = callback_data.user_id
@@ -98,6 +128,7 @@ async def admin_accept(callback: CallbackQuery, callback_data: AdminAction, stat
     await state.update_data(target_user_id=target_user_id)
     await callback.answer()
 
+# Admin tavsif yuborganda (Mijozga "Signal olish" tugmasi boradi)
 @dp.message(StateFilter(AdminState.waiting_for_description))
 async def handle_admin_description(message: Message, state: FSMContext):
     data = await state.get_data()
@@ -105,11 +136,13 @@ async def handle_admin_description(message: Message, state: FSMContext):
     
     user_text = f"Id ingiz muvaffaqyatli ulandi signal olishingiz mumkin.\n\nMalumotlar:\n{message.text}"
     try:
-        await bot.send_message(chat_id=target_user_id, text=user_text)
-        await message.answer("Xabar foydalanuvchiga muvaffaqiyatli yuborildi! ✅")
+        # Shu yerda foydalanuvchiga signal_menu ("Signal olish" tugmasi) yuboriladi
+        await bot.send_message(chat_id=target_user_id, text=user_text, reply_markup=signal_menu)
+        await message.answer("Xabar va 'Signal olish' tugmasi foydalanuvchiga yuborildi! ✅")
     except Exception:
         await message.answer("Xatolik: Foydalanuvchi botni bloklagan bo'lishi mumkin.")
     await state.clear()
+
 
 # ----------------- FLASK SERVER (RENDER UCHUN) -----------------
 app = Flask(__name__)
@@ -125,8 +158,9 @@ def run_flask():
 async def main():
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
-    print("Bot ishga tushdi...")
+    print("Bot yangilangan tartibda ishga tushdi...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
+                                                                                   
