@@ -1,6 +1,8 @@
 import os
 import asyncio
 import threading
+import sqlite3
+import random
 from flask import Flask
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -12,14 +14,31 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
 # ==========================================
-# ⚙️ 1. ASOSIY SOZLAMALAR (PRO VERSION)
+# ⚙️ 1. ASOSIY SOZLAMALAR VA BAZA
 # ==========================================
 BOT_TOKEN = "8897921742:AAHX0mQ6iNYjQAiJwmVdEEvgEovfrJtox0Q"
 ADMIN_ID = 8086545587  # Xo'jayin ID si
 
-# Botga HTML formatda chiroyli yozish imkoniyatini qo'shamiz
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
+
+def init_db():
+    """Ma'lumotlar bazasini yaratish va foydalanuvchilarni eslab qolish tizimi"""
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            status TEXT,
+            luck_level REAL DEFAULT 91.2,
+            signal_count INTEGER DEFAULT 0
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+# Baza jadvalini darhol ishga tushiramiz
+init_db()
 
 # ==========================================
 # 🧠 2. HOLATLAR XOTIRASI (FSM)
@@ -33,28 +52,34 @@ class AdminState(StatesGroup):
 # ==========================================
 # 🎛 3. PREMIUM MENULAR VA TUGMALAR
 # ==========================================
-# Mijoz uchun birinchi qadam
-user_menu = ReplyKeyboardMarkup(
+# Tasdiqlanmagan odam ko'radigan menu
+register_menu = ReplyKeyboardMarkup(
     keyboard=[[KeyboardButton(text="🎰 1 x bet")]],
     resize_keyboard=True,
     input_field_placeholder="Kantorani tanlang..."
 )
 
-# Ruxsat olingandan keyingi qadam
-signal_menu = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton(text="⚡️ Signal olish")]],
+# Tasdiqlangan (VIP) foydalanuvchi ko'radigan doimiy menu
+main_vip_menu = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="⚡️ Signal olish")],
+        [KeyboardButton(text="🍀 Omad darajasi")]
+    ],
     resize_keyboard=True,
-    input_field_placeholder="Signallarni boshlaymizmi?"
+    input_field_placeholder="Kerakli bo'limni tanlang..."
 )
 
 # O'yin menyusi
 apple_menu = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton(text="🍎 APPLE OF FORTUNE 🍏 UCHUN")]],
+    keyboard=[
+        [KeyboardButton(text="🍎 APPLE OF FORTUNE 🍏 UCHUN")],
+        [KeyboardButton(text="⬅️ Orqaga")]
+    ],
     resize_keyboard=True,
     input_field_placeholder="O'yinni tanlang!"
 )
 
-# Admin panel tugmalari (Inline)
+# Admin inline tugmalari
 class AdminAction(CallbackData, prefix="admin"):
     action: str
     user_id: int
@@ -75,15 +100,42 @@ def admin_inline_kb(user_id: int):
 
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
-    text = (
-        "👋 <b>Assalomu alaykum!</b>\n\n"
-        "🎯 <i>Ultimate Premium signallar</i> botiga xush kelibsiz.\n"
-        "Davom etish uchun pastdagi menyudan o'zingizga kerakli kantorani tanlang 👇"
-    )
-    await message.answer(text, reply_markup=user_menu)
+    user_id = message.from_user.id
+    
+    # Bazadan tekshiramiz
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT status FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row and row[0] == "approved":
+        # Agar oldin tasdiqlangan bo'lsa, to'g'ridan-to'g'ri VIP menuga
+        text = "👋 <b>Siz tizimdan muvaffaqiyatli o'tgansiz!</b>\n\n⚡️ Quyidagi menyudan foydalanib signallar olishingiz mumkin:"
+        await message.answer(text, reply_markup=main_vip_menu)
+    else:
+        # Ro'yxatdan o'tmagan bo'lsa
+        text = (
+            "👋 <b>Assalomu alaykum!</b>\n\n"
+            "🎯 <i>Ultimate Premium signallar</i> botiga xush kelibsiz.\n"
+            "Davom etish uchun pastdagi menyudan o'zingizga kerakli kantorani tanlang 👇"
+        )
+        await message.answer(text, reply_markup=register_menu)
 
 @dp.message(F.text == "🎰 1 x bet")
 async def choose_kantora(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+    
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT status FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row and row[0] == "approved":
+        await message.answer("Siz allaqachon ro'yxatdan o'tgansiz!", reply_markup=main_vip_menu)
+        return
+
     text = (
         "⚠️ <b>DIQQAT - TASDIQLASH JARAYONI!</b>\n\n"
         "📸 Iltimos, faqat <b>ID raqamingiz koʻringan</b> qismni screenshot (rasm) qilib yuboring.\n"
@@ -91,7 +143,6 @@ async def choose_kantora(message: Message, state: FSMContext):
         "🚨 <b>MUHIM:</b> Botni aslo bloklamang! Aks holda ID tasdiqlangan taqdirda ham "
         "maxsus signallarni qabul qila olmaysiz."
     )
-    # Tugmani yo'qotib, xabarni chiroyli qilib yuboramiz
     await message.answer(text, reply_markup=ReplyKeyboardRemove())
     await state.set_state(UserState.waiting_for_photo)
 
@@ -100,7 +151,6 @@ async def handle_photo(message: Message, state: FSMContext):
     user_id = message.from_user.id
     photo_id = message.photo[-1].file_id
     
-    # Adminga chiroyli ko'rinishda boradigan xabar
     admin_text = (
         "🛡 <b>YANGI TASDIQLASH SO'ROVI</b>\n\n"
         f"👤 <b>Mijoz:</b> <a href='tg://user?id={user_id}'>{message.from_user.full_name}</a>\n"
@@ -112,20 +162,101 @@ async def handle_photo(message: Message, state: FSMContext):
     await message.answer("⏳ <i>Ma'lumotlar adminga yuborildi. Iltimos, tasdiqlanishini kuting...</i>", reply_markup=ReplyKeyboardRemove())
     await state.clear() 
 
+# 🍀 OMAD DARAJASI TUGMASI
+@dp.message(F.text == "🍀 Omad darajasi")
+async def check_luck(message: Message):
+    user_id = message.from_user.id
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT luck_level FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        luck = round(row[0], 1)
+        await message.answer(f"📊 <b>Sizning ayni vaqtdagi omad darajangiz:</b> <code>{luck}%</code>")
+    else:
+        await message.answer("❌ Siz hali tasdiqdan o'tmagansiz. Iltimos, avval ro'yxatdan o'ting.")
+
+# ⚡️ SIGNAL OLISH BOSILGANDA
 @dp.message(F.text == "⚡️ Signal olish")
 async def process_signal_olish(message: Message):
-    text = "🚀 <b>Ajoyib!</b>\n\nO'yinlar paneli faollashdi. Pastdan kerakli o'yinni tanlang 👇"
-    await message.answer(text, reply_markup=apple_menu)
+    user_id = message.from_user.id
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT status FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row and row[0] == "approved":
+        await message.answer("🚀 O'yinlar paneli faollashdi. Tanlang 👇", reply_markup=apple_menu)
+    else:
+        await message.answer("❌ Bu bo'lim faqat tasdiqlangan VIP a'zolar uchun!")
 
+@dp.message(F.text == "⬅️ Orqaga")
+async def process_back(message: Message):
+    await message.answer("Bosh menyu 👇", reply_markup=main_vip_menu)
+
+# 🍎 APPLE OF FORTUNE SIGNAL GENERATOR (HAQIQIY PRO LOGIKA)
 @dp.message(F.text == "🍎 APPLE OF FORTUNE 🍏 UCHUN")
 async def process_apple_fortune(message: Message):
-    # Bu yerga keyinchalik o'yin logikasini qo'shishingiz mumkin
-    text = (
-        "🍎 <b>APPLE OF FORTUNE</b> 🍏\n\n"
-        "📡 <i>Serverga ulanmoqda... Signallar tayyorlanmoqda!</i>\n"
-        "Tez orada ushbu panel orqali aniq ko'rsatmalar olasiz. Omad!"
-    )
-    await message.answer(text)
+    user_id = message.from_user.id
+    
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT status, luck_level, signal_count FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    
+    if not row or row[0] != "approved":
+        conn.close()
+        await message.answer("❌ Ruxsat berilmagan!")
+        return
+        
+    current_luck = row[1]
+    current_signals = row[2]
+    
+    # 🚨 65% CHEKLOVI
+    if current_luck <= 65.0:
+        conn.close()
+        await message.answer("⚠️ Kechrasiz sizga signala bera olmayman iltimos kesh holatini tozalang")
+        return
+
+    # ⏳ JONLI ANIMATSIYA (LOADING EFFECT)
+    loading_msg = await message.answer("🔄 <code>Signala olinmoqda kuting</code>")
+    await asyncio.sleep(0.4)
+    await loading_msg.edit_text("🔄 <code>Signala olinmoqda kuting.</code>")
+    await asyncio.sleep(0.4)
+    await loading_msg.edit_text("🔄 <code>Signala olinmoqda kuting..</code>")
+    await asyncio.sleep(0.4)
+    await loading_msg.edit_text("🔄 <code>Signala olinmoqda kuting...</code>")
+    await asyncio.sleep(0.4)
+    await loading_msg.edit_text("🛰 <code>Xavfsiz algoritm yuklanmoqda...</code>")
+    await asyncio.sleep(0.4)
+
+    # 🎲 RANDOM RAQAM (2, 4, 5 ko'p chiqadigan og'irlik tizimi)
+    # 1 va 3 ga 10% dan imkoniyat, 2 ga 30%, 4 va 5 ga 25% dan imkoniyat beramiz
+    numbers = [1, 2, 3, 4, 5]
+    weights = [10, 30, 10, 25, 25]
+    chosen_num = random.choices(numbers, weights=weights)[0]
+    
+    # Omad darajasini 1% yoki 2% random tarzda kamaytirish (Masalan: 1.2% yoki 1.7%)
+    minus_luck = random.uniform(1.0, 2.0)
+    new_luck = max(64.0, current_luck - minus_luck) # 64 dan pastga tushib ketmasligi uchun
+    new_signal_count = current_signals + 1
+    
+    # Bazani yangilaymiz
+    cursor.execute("UPDATE users SET luck_level = ?, signal_count = ? WHERE user_id = ?", (new_luck, new_signal_count, user_id))
+    conn.commit()
+    conn.close()
+    
+    # Natija xabari
+    result_text = f"🍏 <b>APPLE OF FORTUNE</b> 🍎\n\n🎯 <b>Tavsiya etilgan yo'lak:</b> <code>{chosen_num}</code>\n📊 Yangi omad darajangiz: <code>{round(new_luck, 1)}%</code>"
+    
+    # ⚠️ 3 TA RAQAMDAN SO'NG OGOHLANTIRISH
+    if new_signal_count % 3 == 0:
+        result_text += "\n\n⚠️ <b>Bu yoʻliga omad foizingiz juda kam iltimoss yutuqni oling yoki davom eting!</b>"
+        
+    await loading_msg.edit_text(result_text)
 
 @dp.message(StateFilter(UserState.waiting_for_photo))
 async def handle_not_photo(message: Message):
@@ -147,7 +278,7 @@ async def admin_reject(callback: CallbackQuery, callback_data: AdminAction):
         await callback.message.edit_caption(caption=f"Foydalanuvchi {target_user_id} rad etildi. ❌")
     except Exception:
         await callback.answer("⚠️ Mijoz botni bloklagan!", show_alert=True)
-    await callback.answer("Rad etildi!")
+    await callback.answer()
 
 @dp.callback_query(AdminAction.filter(F.action == "accept"))
 async def admin_accept(callback: CallbackQuery, callback_data: AdminAction, state: FSMContext):
@@ -165,6 +296,16 @@ async def handle_admin_description(message: Message, state: FSMContext):
     data = await state.get_data()
     target_user_id = data.get("target_user_id")
     
+    # Foydalanuvchini bazaga 'approved' (tasdiqlangan) deb yozamiz
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT OR REPLACE INTO users (user_id, status, luck_level, signal_count)
+        VALUES (?, 'approved', 91.2, 0)
+    """, (target_user_id,))
+    conn.commit()
+    conn.close()
+    
     user_text = (
         "🎉 <b>TABRIKLAYMIZ!</b>\n"
         "Sizning ID raqamingiz muvaffaqiyatli ulandi va tasdiqdan o'tdi.\n\n"
@@ -173,10 +314,11 @@ async def handle_admin_description(message: Message, state: FSMContext):
         "👇 <b>Signal olish uchun pastdagi tugmani bosing!</b>"
     )
     try:
-        await bot.send_message(chat_id=target_user_id, text=user_text, reply_markup=signal_menu)
-        await message.answer("✅ Xabar va ⚡️ Signal olish tugmasi mijozga yetkazildi!")
+        # Tasdiqlangan odamga yangi VIP menu yuboriladi
+        await bot.send_message(chat_id=target_user_id, text=user_text, reply_markup=main_vip_menu)
+        await message.answer("✅ Mijoz bazaga qo'shildi va unga VIP menyu yuborildi!")
     except Exception:
-        await message.answer("❌ Xatolik: Foydalanuvchi botni bloklagan ko'rinadi.")
+        await message.answer("❌ Xatolik: Foydalanuvchi botni bloklagan.")
     await state.clear()
 
 # ==========================================
@@ -199,9 +341,9 @@ async def main():
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
     
-    print("🚀 Premium bot mukammal dizaynda ishga tushdi...")
+    print("🚀 Premium bot barcha yangi funksiyalari bilan ishga tushdi...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
-    
+
