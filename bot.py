@@ -3,6 +3,7 @@ import asyncio
 import threading
 import sqlite3
 import random
+from datetime import datetime
 from flask import Flask
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -31,9 +32,16 @@ def init_db():
             user_id INTEGER PRIMARY KEY,
             status TEXT,
             luck_level REAL DEFAULT 91.2,
-            signal_count INTEGER DEFAULT 0
+            signal_count INTEGER DEFAULT 0,
+            last_golden_date TEXT DEFAULT ''
         )
     """)
+    # Agar eski baza mavjud bo'lsa, yangi ustunni tekshirib qo'shamiz
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN last_golden_date TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # Ustun allaqachon mavjud bo'lsa xatolik bermaydi
+        
     conn.commit()
     conn.close()
 
@@ -51,14 +59,12 @@ class AdminState(StatesGroup):
 # ==========================================
 # 🎛 3. PREMIUM MENULAR VA TUGMALAR
 # ==========================================
-# Oddiy foydalanuvchi menyusi
 register_menu = ReplyKeyboardMarkup(
     keyboard=[[KeyboardButton(text="🎰 1xBet")]],
     resize_keyboard=True,
     input_field_placeholder="Bukmekerlik idorasini tanlang..."
 )
 
-# Tasdiqlangan VIP foydalanuvchi menyusi
 main_vip_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="⚡️ Signal olish")],
@@ -68,7 +74,6 @@ main_vip_menu = ReplyKeyboardMarkup(
     input_field_placeholder="Kerakli bo'limni tanlang..."
 )
 
-# O'yinlar menyusi
 apple_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🍎 APPLE OF FORTUNE 🍏 UCHUN")],
@@ -78,17 +83,16 @@ apple_menu = ReplyKeyboardMarkup(
     input_field_placeholder="O'yin panelini tanlang!"
 )
 
-# Maxfiy "Dark World" menyusi
+# 🌌 YANGILANGAN DARK WORLD MENYUSI
 dark_world_menu = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="🌌 Dark World")],
+        [KeyboardButton(text="🏆 Kunlik Oltin Signal")],
         [KeyboardButton(text="🔙 Asosiy menyuga qaytish")]
     ],
     resize_keyboard=True,
-    input_field_placeholder="Maxfiy tizim faollashtirildi..."
+    input_field_placeholder="Maxfiy algoritm faollashtirildi..."
 )
 
-# Admin inline boshqaruv tugmalari
 class AdminAction(CallbackData, prefix="admin"):
     action: str
     user_id: int
@@ -107,27 +111,79 @@ def admin_inline_kb(user_id: int):
 # 👤 4. FOYDALANUVCHI REJIMLARI VA MANTIQ
 # ==========================================
 
-# MAXFIY PAROL TIZIMI (262626121212 kiritilganda mutloq boshqa menu ochiladi)
+# MAXFIY PAROL TIZIMI
 @dp.message(F.text == "262626121212")
 async def secret_dark_world(message: Message):
     try:
-        await message.delete()  # Maxfiy parol ekranda qolib ketmasligi uchun o'chiriladi
+        await message.delete()  # Maxfiy parol guruh yoki chatda qolib ketmasligi uchun o'chiriladi
     except:
         pass
     text = (
         "🚨 <b>TIZIM BUZIB KIRILDI (ACCESS GRANTED)</b> 🚨\n\n"
-        "🔒 <i>Siz avvalgi menyularga aloqador bo'lmagan mutloq boshqa maxfiy dunyoga kirdingiz.</i>\n"
-        "Quyidagi paneldan foydalanishingiz mumkin 👇"
+        "🔒 <i>Siz standart menyulardan butunlay uzilgan maxfiy va xakerlik dunyosiga kirdingiz.</i>\n"
+        "Bu yerda sizga kuniga faqat 1 marta **Oltin 3 talik signal** taqdim etiladi 👇"
     )
     await message.answer(text, reply_markup=dark_world_menu)
 
-@dp.message(F.text == "🌌 Dark World")
-async def dark_world_action(message: Message):
-    await message.answer("💀 <b>Welcome to the Dark World.</b>\n<i>Bu yerda maxfiy skriptlar va yopiq algoritm panellari joylashgan.</i>")
+# 🏆 KUNLIK OLTIN SIGNAL TIZIMI (FAKTY CHAT ANIMATSIYASI BILAN)
+@dp.message(F.text == "🏆 Kunlik Oltin Signal")
+async def process_golden_signal(message: Message):
+    user_id = message.from_user.id
+    today_str = datetime.now().strftime("%Y-%m-%d") # Bugungi sana (YYYY-MM-DD)
+    
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT last_golden_date FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    
+    # Kunlik cheklovni tekshirish
+    if row and row[0] == today_str:
+        conn.close()
+        await message.answer(
+            "⚠️ <b>Kechirasiz! Siz bugungi shifrlangan Oltin Signalni qabul qilib boʻlgansiz.</b>\n\n"
+            "⏳ <i>Yangi 99.9% aniqlikdagi maxfiy algoritm siz uchun ertaga qayta yuklanadi!</i>"
+        )
+        return
+
+    # Super xakerlik loading effekti
+    loading_msg = await message.answer("🔒 <code>[MAIN_FRAME]: Shifrlangan kanal ochilmoqda...</code>")
+    await asyncio.sleep(0.4)
+    await loading_msg.edit_text("🛰 <code>[CONNECTING]: Proxy va serverlar zanjiri ulanmoqda...</code>")
+    await asyncio.sleep(0.4)
+    await loading_msg.edit_text("☣️ <code>[BYPASSING]: Anti-cheat himoya tizimi chetlab oʻtilmoqda...</code>")
+    await asyncio.sleep(0.4)
+    await loading_msg.edit_text("🔮 <code>[EXTRACTING]: Bugungi 3 bosqichli oltin matritsa yuklanmoqda...</code>")
+    await asyncio.sleep(0.4)
+    await loading_msg.edit_text("🎯 <code>[SUCCESS]: Maʼlumotlar muvaffaqiyatli qabul qilindi!</code>")
+    await asyncio.sleep(0.3)
+
+    # 3 ta ketma-ket muvozanatli random raqamlar generatori (2, 4, 5 ustunlik qiladi)
+    numbers = [1, 2, 3, 4, 5]
+    weights = [14, 25, 14, 23, 24]
+    
+    step1 = random.choices(numbers, weights=weights)[0]
+    step2 = random.choices(numbers, weights=weights)[0]
+    step3 = random.choices(numbers, weights=weights)[0]
+    
+    # Foydalanuvchi bugun ushbu signalni olganini bazaga yozib qo'yamiz
+    cursor.execute("UPDATE users SET last_golden_date = ? WHERE user_id = ?", (today_str, user_id))
+    conn.commit()
+    conn.close()
+    
+    golden_text = (
+        "🏆 <b>KUNLIK PREMIUM OLTIN SIGNAL</b> 🏆\n"
+        "🎯 <i>Maksimal aniqlik darajasi: 99.9%</i>\n\n"
+        f"1️⃣ <b>1-qadam (Yoʻlak):</b> <code>[{step1}]</code>\n"
+        f"2️⃣ <b>2-qadam (Yoʻlak):</b> <code>[{step2}]</code>\n"
+        f"3️⃣ <b>3-qadam (Yoʻlak):</b> <code>[{step3}]</code>\n\n"
+        "🚨 <b>ESLATMA:</b> Ushbu ketma-ketlikdan faqat bir marta foydalaning. "
+        "Keyingi maxfiy kombinatsiya ertaga aynan shu vaqtda ochiladi!"
+    )
+    await loading_msg.edit_text(golden_text)
 
 @dp.message(F.text == "🔙 Asosiy menyuga qaytish")
 async def back_from_dark(message: Message):
-    await message.answer("Tizim tiklanmoqda...", reply_markup=ReplyKeyboardRemove())
+    await message.answer("Tizim standart rejimga qaytmoqda...", reply_markup=ReplyKeyboardRemove())
     await cmd_start(message)
 
 # Standart /start buyrug'i
@@ -225,7 +281,7 @@ async def process_signal_olish(message: Message):
 async def process_back(message: Message):
     await message.answer("Bosh menyu 👇", reply_markup=main_vip_menu)
 
-# 🍎 APPLE OF FORTUNE SIGNAL GENERATOR (JONLI KOSMIK ANIMATSIYA)
+# STANDART APPLE OF FORTUNE SIGNAL GENERATOR
 @dp.message(F.text == "🍎 APPLE OF FORTUNE 🍏 UCHUN")
 async def process_apple_fortune(message: Message):
     user_id = message.from_user.id
@@ -243,13 +299,11 @@ async def process_apple_fortune(message: Message):
     current_luck = row[1]
     current_signals = row[2]
     
-    # 🚨 65% CHEKLOVI
     if current_luck <= 65.0:
         conn.close()
         await message.answer("⚠️ <b>Kechirasiz, sizga signal bera olmayman. Iltimos, kesh (cache) holatini tozalang!</b>")
         return
 
-    # ⏳ SIFATLI VA JONLI LOADING EFFEKTI
     loading_msg = await message.answer("📡 <code>[◽️◽️◽️◽️◽️◽️◽️◽️◽️◽️] 0% Serverga ulanish...</code>")
     await asyncio.sleep(0.3)
     await loading_msg.edit_text("⚡️ <code>[==◽️◽️◽️◽️◽️◽️◽️◽️] 25% Algoritm kesh xotirasi tekshirilmoqda...</code>")
@@ -261,13 +315,10 @@ async def process_apple_fortune(message: Message):
     await loading_msg.edit_text("🚀 <code>[========] 100% Signal muvaffaqiyatli generatsiya qilindi!</code>")
     await asyncio.sleep(0.2)
 
-    # 🎲 RANDOM RAQAM BALANSI (1-5 oralig'ida: 2, 4, 5 ustunroq, lekin muvozanatli)
-    # Og'irliklarni muvozanatga keltirdik: 1(14%), 2(25%), 3(14%), 4(23%), 5(24%)
     numbers = [1, 2, 3, 4, 5]
     weights = [14, 25, 14, 23, 24]
     chosen_num = random.choices(numbers, weights=weights)[0]
     
-    # Omadni 1% yoki 2% oralig'ida kamaytirish
     minus_luck = random.uniform(1.0, 2.0)
     new_luck = max(64.0, current_luck - minus_luck)
     new_signal_count = current_signals + 1
@@ -282,7 +333,6 @@ async def process_apple_fortune(message: Message):
         f"📊 Yangi omad darajangiz: <code>{round(new_luck, 1)}%</code>"
     )
     
-    # ⚠️ 3 TA RAQAMDAN SO'NG OGOHLANTIRISH
     if new_signal_count % 3 == 0:
         result_text += "\n\n⚠️ <b>Bu yoʻlakda omad foizingiz juda past! Iltimos, yutuqni oling yoki ehtiyotkorlik bilan davom eting.</b>"
         
@@ -369,7 +419,7 @@ async def main():
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
     
-    print("🚀 Barcha oʻzgarishlar va maxfiy funksiyalar yuklandi. Bot faol!")
+    print("🚀 Barcha oʻzgarishlar va kunlik oltin signal tizimi yuklandi. Bot faol!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
