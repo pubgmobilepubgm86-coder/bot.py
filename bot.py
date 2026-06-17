@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-⚡️ GALAXY MATRIX ENTERPRISE SYSTEM V5.1 PREMIUM (PATCHED) ⚡️
+⚡️ GALAXY MATRIX ENTERPRISE SYSTEM V5.1 PREMIUM (PATCHED & FIXED) ⚡️
 ==================================================
 🤖 Platform: aiogram 3.x Fast Framework
 📦 Database: SQLite3 Unified Cyber Schema
@@ -31,7 +31,6 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters.callback_data import CallbackData
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
-from aiogram.exceptions import TelegramForbiddenError
 
 # =====================================================================
 # ⚙️ 1. GLOBAL KONFIGURATSIYA VA TIZIM SOZLAMALARI
@@ -57,9 +56,7 @@ class DeepCyberDatabase:
         return sqlite3.connect(self.db_name)
 
     def _build_mainframe(self):
-        """Tizim uchun zarur bo'lgan barcha jadvallarni noldan yaratish"""
         with self._connect() as conn:
-            # Foydalanuvchilar jadvali (Barcha modullar ustunlari birlashtirilgan)
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     user_id INTEGER PRIMARY KEY,
@@ -76,7 +73,6 @@ class DeepCyberDatabase:
                     is_boss INTEGER DEFAULT 0
                 )
             """)
-            # Promo-kodlar boshqaruvi
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS promo_codes (
                     code TEXT PRIMARY KEY,
@@ -85,7 +81,6 @@ class DeepCyberDatabase:
                     used_count INTEGER DEFAULT 0
                 )
             """)
-            # Tizim xavfsizlik jurnali (Logs)
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS system_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,7 +91,6 @@ class DeepCyberDatabase:
             """)
             conn.commit()
 
-    # --- FOYDALANUVCHI AMALLARI ---
     def get_user(self, user_id):
         with self._connect() as conn:
             cursor = conn.cursor()
@@ -127,7 +121,6 @@ class DeepCyberDatabase:
             conn.execute("UPDATE users SET cyber_coins = cyber_coins + ? WHERE user_id = ?", (amount, user_id))
             conn.commit()
 
-    # --- KUNLIK CHEKLOVLAR VA SANALAR ---
     def set_date_restriction(self, user_id, column_name, date_str):
         with self._connect() as conn:
             conn.execute(f"UPDATE users SET {column_name} = ? WHERE user_id = ?", (date_str, user_id))
@@ -138,7 +131,6 @@ class DeepCyberDatabase:
             conn.execute(f"UPDATE users SET {column_name} = ? WHERE user_id = ?", (flag, user_id))
             conn.commit()
 
-    # --- STATISTIKA VA REYTING ---
     def get_stats(self):
         with self._connect() as conn:
             cursor = conn.cursor()
@@ -166,7 +158,6 @@ class DeepCyberDatabase:
             cursor.execute("SELECT COUNT(*) FROM users WHERE referred_by = ?", (user_id,))
             return cursor.fetchone()[0]
 
-    # --- PROMO-KOD SISTEMASI ---
     def insert_promo(self, code, luck, uses):
         with self._connect() as conn:
             conn.execute("INSERT OR REPLACE INTO promo_codes VALUES (?, ?, ?, 0)", (code, luck, uses))
@@ -188,7 +179,6 @@ class DeepCyberDatabase:
             conn.commit()
             return "success"
 
-    # --- BOSS OVERRIDE MODULLARI ---
     def set_boss_privilege(self, user_id, flag: int):
         with self._connect() as conn:
             conn.execute("UPDATE users SET is_boss = ? WHERE user_id = ?", (flag, user_id))
@@ -268,7 +258,6 @@ dark_world_menu = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# ULTRA MAXFIY BOSS KLAVIATURASI (FAQAT KOD BILAN KIRILADI)
 boss_mainframe_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="👑 Matritsani Boshqarish (God Mode)"), KeyboardButton(text="📢 Global Alert Tarqatish")],
@@ -298,7 +287,6 @@ async def cmd_start_processor(message: Message):
     args = message.text.split()
     referrer_id = 0
     
-    # Referral link tekshirish (/start 8086545)
     if len(args) > 1 and args[1].isdigit():
         if int(args[1]) != user_id:
             referrer_id = int(args[1])
@@ -310,7 +298,7 @@ async def cmd_start_processor(message: Message):
     if is_new:
         db.inject_system_log("NEW_USER", f"ID {user_id} registered.")
         if referrer_id > 0:
-            db.update_wallet(referrer_id, 35.0)  # Do'stiga premium bonus
+            db.update_wallet(referrer_id, 35.0)
             try:
                 await bot.send_message(
                     chat_id=referrer_id, 
@@ -358,7 +346,7 @@ async def register_photo_get(message: Message, state: FSMContext):
     await state.clear()
 
 # =====================================================================
-# 📊 6. STANDARD USER UTILITIES AND METRICS (PROFIL, STATS, PROMO)
+# 📊 6. STANDARD USER UTILITIES AND METRICS
 # =====================================================================
 @dp.message(F.text == "👤 Profil")
 async def user_profile_card(message: Message):
@@ -462,7 +450,7 @@ async def risk_finish(message: Message, state: FSMContext):
     )
 
 # =====================================================================
-# 🎰 7. SIMULATED INTERACTIVE GAMES MODULES (CHARXPALAK, AVIATOR, QUIZ)
+# 🎰 7. SIMULATED INTERACTIVE GAMES MODULES
 # =====================================================================
 @dp.message(F.text == "🎰 Omad Charxpalagi")
 async def lucky_wheel_handler(message: Message):
@@ -471,6 +459,7 @@ async def lucky_wheel_handler(message: Message):
     if not user or user[1] != "approved": return
 
     today = datetime.now().strftime("%Y-%m-%d")
+    if user[9] == today = datetime.now().strftime("%Y-%m-%d")
     if user[9] == today:
         await message.answer("🛑 <b>Kunlik cheklov faollashgan!</b>\nOmad charxpalagini 24 soatda faqat 1 marta aylantirish mumkin. Ertaga urinib ko'ring! ⏳")
         return
@@ -564,7 +553,7 @@ async def quiz_callback_handler(callback: CallbackQuery):
     await callback.answer()
 
 # =====================================================================
-# 🍏 8. LEGACY GAMES ALGORITHMS (APPLE OF FORTUNE & MINES MATRIX)
+# 🍏 8. LEGACY GAMES ALGORITHMS (MUKAMMAL TOZALANGAN)
 # =====================================================================
 @dp.message(F.text == "🍎 APPLE OF FORTUNE 🍏")
 async def apple_fortune_game(message: Message):
@@ -590,44 +579,28 @@ async def apple_fortune_game(message: Message):
 
 @dp.message(F.text == "💣 Mines Matrix")
 async def mines_game(message: Message):
-    if db.get_user(message.from_user.id)[1] != "approved": return
+    user = db.get_user(message.from_user.id)
+    if not user or user[1] != "approved": return
+    
     loading = await message.answer("📡 <code>Kvadrat matritsa skanerlanmoqda...</code>")
     await asyncio.sleep(0.2)
     
     grid = [["⬜️" for _ in range(5)] for _ in range(5)]
-    # 3 ta xavfsiz yulduzni tasodifiy joylashtirish
     for step in random.sample(range(25), 3):
         grid[step // 5][step % 5] = "🌟"
         
-    # 🛠 MANA SHU YER TUZATILDI: \n f-string tashqarisiga olib chiqildi
+    # XATO KELTIRIB CHIQARMAYDIGAN USUL
     grid_string = "\n".join(" ".join(row) for row in grid)
     
-    await loading.edit_text(
-        f"💣 <b>MINES QUANTUM MAP (3 BOMBAS CODES)</b> 💣\n\n"
+    result_text = (
+        "💣 <b>MINES QUANTUM MAP (3 BOMBAS CODES)</b> 💣\n\n"
         f"{grid_string}\n\n"
-        f"⚠️ <i>Faqat ko'rsatilgan yulduzli [🌟] kataklarni bosing!</i>"
+        "⚠️ <i>Faqat ko'rsatilgan yulduzli [🌟] kataklarni bosing!</i>"
     )
-
-@dp.message(F.text == "☣️ Dark Mines Skaner")
-async def dark_mines_scanner(message: Message):
-    user = db.get_user(message.from_user.id)
-    if not user or user[5] != 1: return
-    
-    grid = [["⬛️" for _ in range(5)] for _ in range(5)]
-    for step in random.sample(range(25), 5):
-        grid[step // 5][step % 5] = "🔥"
-        
-    # 🛠 MANA SHU YER TUZATILDI: \n f-string tashqarisiga olib chiqildi
-    grid_string = "\n".join(" ".join(row) for row in grid)
-        
-    await message.answer(
-        f"💀 <b>DARK NET MINES QUANTUM BREACH</b> 💀\n\n"
-        f"{grid_string}\n\n"
-        f"⚠️ O'ta maxfiy kiber tizim xaritasi."
-    )
+    await loading.edit_text(result_text)
 
 # =====================================================================
-# 🌌 9. DARK WORLD MODE (MAXFIY ALGORITMLAR VA REJIMLAR)
+# 🌌 9. DARK WORLD MODE
 # =====================================================================
 @dp.message(F.text == "262626121212")
 async def enter_dark_world(message: Message):
@@ -662,15 +635,15 @@ async def dark_mines_scanner(message: Message):
     for step in random.sample(range(25), 5):
         grid[step // 5][step % 5] = "🔥"
         
-    # XATOLIK TUZATILGAN QISM: f-string ichida \n ishlatilmasligi uchun
-    # uni alohida o'zgaruvchiga oldik.
+    # XATO KELTIRIB CHIQARMAYDIGAN USUL
     grid_string = "\n".join(" ".join(row) for row in grid)
-        
-    await message.answer(
-        f"💀 <b>DARK NET MINES QUANTUM BREACH</b> 💀\n\n"
+    
+    result_text = (
+        "💀 <b>DARK NET MINES QUANTUM BREACH</b> 💀\n\n"
         f"{grid_string}\n\n"
-        f"⚠️ O'ta maxfiy kiber tizim xaritasi."
+        "⚠️ O'ta maxfiy kiber tizim xaritasi."
     )
+    await message.answer(result_text)
 
 @dp.message(F.text == "🚪 Dark World'dan chiqish")
 async def exit_dark_world(message: Message):
@@ -731,7 +704,7 @@ async def feedback_finish(message: Message, state: FSMContext):
     await message.answer("✅ <b>Xabaringiz xavfsiz kanallar orqali adminga yuborildi. Tez orada javob olasiz!</b>", reply_markup=main_vip_menu)
 
 # =====================================================================
-# 👑 11. YASHIRIN "BOSS CONTROL CENTER" TIZIMI (mutloq boshqaruv)
+# 👑 11. YASHIRIN "BOSS CONTROL CENTER" TIZIMI
 # =====================================================================
 @dp.message(F.text == "77779999_MATRIX_OVERRIDE")
 async def activate_boss_mode(message: Message):
@@ -739,7 +712,6 @@ async def activate_boss_mode(message: Message):
     except: pass
     user_id = message.from_user.id
     
-    # Boss statusini bazada yoqish
     db.set_boss_privilege(user_id, 1)
     db.update_vip_status(user_id, "approved")
     db.inject_system_log("BOSS_OVERRIDE", f"User {user_id} triggered Master Boss Menu.")
@@ -760,7 +732,6 @@ async def boss_god_mode_action(message: Message):
     user = db.get_user(message.from_user.id)
     if not user or user[11] != 1: return
     
-    # O'z profiliga cheksiz pul va omad berish
     db.update_wallet(message.from_user.id, 99999.0)
     db.save_metrics(message.from_user.id, 999.9, user[3])
     db.inject_system_log("GOD_MODE", f"Boss injected balances to himself.")
@@ -830,7 +801,7 @@ async def boss_view_logs(message: Message):
     await message.answer(log_text)
 
 # =====================================================================
-# 👑 12. STANDARD ADMIN INTERFACE AND CALLBAKS (TASDIQLASH TIZIMI)
+# 👑 12. STANDARD ADMIN INTERFACE AND CALLBAKS
 # =====================================================================
 @dp.callback_query(AdminAction.filter(F.action == "reject"))
 async def admin_reject_user(callback: CallbackQuery, callback_data: AdminAction):
@@ -936,7 +907,7 @@ async def broadcast_action(message: Message, state: FSMContext):
     await state.clear()
 
 # =====================================================================
-# 🌐 13. WEB INFRASTRUCTURE DEPLOYMENT (FLASK BACKEND ENGINE)
+# 🌐 13. WEB INFRASTRUCTURE DEPLOYMENT
 # =====================================================================
 app = Flask(__name__)
 
@@ -948,10 +919,9 @@ def start_flask_runtime():
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
 
 # =====================================================================
-# 🛰 14. FIREWALL PERSISTENCE ENGINE (ANTI-SLEEP CORE LOOP)
+# 🛰 14. FIREWALL PERSISTENCE ENGINE
 # =====================================================================
 async def anti_sleep_ping_loop():
-    """Render xizmatini uxlab qolishdan (Spin down) 24/7 himoya qilish sikli"""
     await asyncio.sleep(25)
     async with aiohttp.ClientSession() as session:
         while True:
@@ -960,22 +930,19 @@ async def anti_sleep_ping_loop():
                     logging.info(f"🛰 [SELF-PING]: Packet synced with Render Cloud. Code: {response.status}")
             except Exception as e:
                 logging.error(f"🛰 [PING ERROR ENGINE]: {e}")
-            await asyncio.sleep(240)  # Har 4 daqiqada doimiy so'rov yuborish
+            await asyncio.sleep(240)
 
 # =====================================================================
 # 🏁 15. RUNTIME GLOBAL EXECUTION ENTRY POINT
 # =====================================================================
 async def main():
-    # Bot ishga tushganda eski vaqtinchalik Dark rejimlarni tozalash
     with sqlite3.connect("galaxy_core_v5.db") as conn:
         conn.execute("UPDATE users SET is_dark_mode = 0")
         conn.commit()
     
-    # Flask serverni parallel oqimda portlatish
     flask_thread = threading.Thread(target=start_flask_runtime, daemon=True)
     flask_thread.start()
     
-    # Anti-Sleep siklini asinxron fonda orqaga yuklash
     asyncio.create_task(anti_sleep_ping_loop())
     
     print("=====================================================")
