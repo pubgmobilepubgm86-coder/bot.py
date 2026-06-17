@@ -8,41 +8,53 @@ from aiogram.filters import CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters.callback_data import CallbackData
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 
-# ----------------- SOZLAMALAR -----------------
+# ==========================================
+# ⚙️ 1. ASOSIY SOZLAMALAR (PRO VERSION)
+# ==========================================
 BOT_TOKEN = "8897921742:AAHX0mQ6iNYjQAiJwmVdEEvgEovfrJtox0Q"
-ADMIN_ID = 8086545587  # Sizning Admin ID raqamingiz
+ADMIN_ID = 8086545587  # Xo'jayin ID si
 
-bot = Bot(token=BOT_TOKEN)
+# Botga HTML formatda chiroyli yozish imkoniyatini qo'shamiz
+bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 
-# ----------------- HOLATLAR (States) -----------------
+# ==========================================
+# 🧠 2. HOLATLAR XOTIRASI (FSM)
+# ==========================================
 class UserState(StatesGroup):
     waiting_for_photo = State()
 
 class AdminState(StatesGroup):
     waiting_for_description = State()
 
-# ----------------- TUGMALAR (MENULAR) -----------------
-# 1. Start bosilganda chiqadigan menu
+# ==========================================
+# 🎛 3. PREMIUM MENULAR VA TUGMALAR
+# ==========================================
+# Mijoz uchun birinchi qadam
 user_menu = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton(text="1 x bet")]],
-    resize_keyboard=True
+    keyboard=[[KeyboardButton(text="🎰 1 x bet")]],
+    resize_keyboard=True,
+    input_field_placeholder="Kantorani tanlang..."
 )
 
-# 2. Admin qabul qilgandan keyin chiqadigan menu
+# Ruxsat olingandan keyingi qadam
 signal_menu = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton(text="Signal olish")]],
-    resize_keyboard=True
+    keyboard=[[KeyboardButton(text="⚡️ Signal olish")]],
+    resize_keyboard=True,
+    input_field_placeholder="Signallarni boshlaymizmi?"
 )
 
-# 3. "Signal olish" bosilganda chiqadigan menu
+# O'yin menyusi
 apple_menu = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton(text="APPLE OF FORTUNE🍎 UCHUN")]],
-    resize_keyboard=True
+    keyboard=[[KeyboardButton(text="🍎 APPLE OF FORTUNE 🍏 UCHUN")]],
+    resize_keyboard=True,
+    input_field_placeholder="O'yinni tanlang!"
 )
 
-# Admin inline tugmalari
+# Admin panel tugmalari (Inline)
 class AdminAction(CallbackData, prefix="admin"):
     action: str
     user_id: int
@@ -57,110 +69,139 @@ def admin_inline_kb(user_id: int):
         ]
     )
 
-# ----------------- FOYDALANUVCHI QISMI -----------------
+# ==========================================
+# 👤 4. FOYDALANUVCHI BO'LIMI (MIJOZ LOGIKASI)
+# ==========================================
 
-# /start bosilganda
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
-    await message.answer("Assalomu alaykum! Qaysi kantora tanlaysiz?", reply_markup=user_menu)
+    text = (
+        "👋 <b>Assalomu alaykum!</b>\n\n"
+        "🎯 <i>Ultimate Premium signallar</i> botiga xush kelibsiz.\n"
+        "Davom etish uchun pastdagi menyudan o'zingizga kerakli kantorani tanlang 👇"
+    )
+    await message.answer(text, reply_markup=user_menu)
 
-# "1 x bet" bosilganda (Tugma yo'qoladi va rasm so'raladi)
-@dp.message(F.text == "1 x bet")
+@dp.message(F.text == "🎰 1 x bet")
 async def choose_kantora(message: Message, state: FSMContext):
     text = (
-        "Iltimos faqat id koʻringan qismingizni screnshot orqali yuboring va toʻgʻri id koʻringan rasm yuboring, "
-        "boshqa rasm yuborsangiz bot qabul qilmaydi.\n\n"
-        "Botni bloklamang boʻlmasam id tasdiqlangan boʻlsa ham signal ola olmaysiz."
+        "⚠️ <b>DIQQAT - TASDIQLASH JARAYONI!</b>\n\n"
+        "📸 Iltimos, faqat <b>ID raqamingiz koʻringan</b> qismni screenshot (rasm) qilib yuboring.\n"
+        "<i>Boshqa turdagi yoki noto'g'ri rasmlar tizim tomonidan avtomatik rad etiladi.</i>\n\n"
+        "🚨 <b>MUHIM:</b> Botni aslo bloklamang! Aks holda ID tasdiqlangan taqdirda ham "
+        "maxsus signallarni qabul qila olmaysiz."
     )
-    # reply_markup=ReplyKeyboardRemove() orqali "1 x bet" tugmasini yo'qotamiz
+    # Tugmani yo'qotib, xabarni chiroyli qilib yuboramiz
     await message.answer(text, reply_markup=ReplyKeyboardRemove())
     await state.set_state(UserState.waiting_for_photo)
 
-# Rasm yuborilganda
 @dp.message(StateFilter(UserState.waiting_for_photo), F.photo)
 async def handle_photo(message: Message, state: FSMContext):
     user_id = message.from_user.id
     photo_id = message.photo[-1].file_id
     
-    admin_text = f"👤 Yangi ID tasdiqlash so'rovi!\nFoydalanuvchi ID: {user_id}\nIsmi: {message.from_user.full_name}"
+    # Adminga chiroyli ko'rinishda boradigan xabar
+    admin_text = (
+        "🛡 <b>YANGI TASDIQLASH SO'ROVI</b>\n\n"
+        f"👤 <b>Mijoz:</b> <a href='tg://user?id={user_id}'>{message.from_user.full_name}</a>\n"
+        f"🆔 <b>ID:</b> <code>{user_id}</code>\n\n"
+        "<i>Qabul qilasizmi yoki rad etasizmi? 👇</i>"
+    )
     await bot.send_photo(chat_id=ADMIN_ID, photo=photo_id, caption=admin_text, reply_markup=admin_inline_kb(user_id))
     
-    await message.answer("Tasdiqlanishini kuting...", reply_markup=ReplyKeyboardRemove())
+    await message.answer("⏳ <i>Ma'lumotlar adminga yuborildi. Iltimos, tasdiqlanishini kuting...</i>", reply_markup=ReplyKeyboardRemove())
     await state.clear() 
 
-# "Signal olish" tugmasi bosilganda (Tugma yo'qoladi va Apple of Fortune chiqadi)
-@dp.message(F.text == "Signal olish")
+@dp.message(F.text == "⚡️ Signal olish")
 async def process_signal_olish(message: Message):
-    await message.answer("Kerakli bo'limni tanlang 👇", reply_markup=apple_menu)
+    text = "🚀 <b>Ajoyib!</b>\n\nO'yinlar paneli faollashdi. Pastdan kerakli o'yinni tanlang 👇"
+    await message.answer(text, reply_markup=apple_menu)
 
-# "APPLE OF FORTUNE🍎 UCHUN" tugmasi bosilganda
-@dp.message(F.text == "APPLE OF FORTUNE🍎 UCHUN")
+@dp.message(F.text == "🍎 APPLE OF FORTUNE 🍏 UCHUN")
 async def process_apple_fortune(message: Message):
-    await message.answer("🍎 Apple of Fortune o'yini uchun signallar paneli yuklanmoqda...")
+    # Bu yerga keyinchalik o'yin logikasini qo'shishingiz mumkin
+    text = (
+        "🍎 <b>APPLE OF FORTUNE</b> 🍏\n\n"
+        "📡 <i>Serverga ulanmoqda... Signallar tayyorlanmoqda!</i>\n"
+        "Tez orada ushbu panel orqali aniq ko'rsatmalar olasiz. Omad!"
+    )
+    await message.answer(text)
 
-# Agar rasm o'rniga matn yuborsa
 @dp.message(StateFilter(UserState.waiting_for_photo))
 async def handle_not_photo(message: Message):
-    await message.answer("Iltimos, faqat rasm (screenshot) yuboring.")
+    await message.answer("❌ <b>Xatolik!</b>\nIltimos, faqat rasm (screenshot) formatida fayl yuboring.")
 
+# ==========================================
+# 👑 5. ADMIN BO'LIMI (BOSHQARUV)
+# ==========================================
 
-# ----------------- ADMIN QISMI -----------------
-
-# Rad etish bosilganda
 @dp.callback_query(AdminAction.filter(F.action == "reject"))
 async def admin_reject(callback: CallbackQuery, callback_data: AdminAction):
     target_user_id = callback_data.user_id
     try:
-        await bot.send_message(chat_id=target_user_id, text="Iltimos toʻgʻri id koʻrsatilgan 1 x bet id si kprsatilgan rasmni yuboring iltimos")
+        reject_text = (
+            "❌ <b>Tasdiqlanmadi!</b>\n\n"
+            "Iltimos, toʻgʻri ko'rsatilgan <b>1 x bet ID</b> rasmini qoidalarga muvofiq qayta yuboring."
+        )
+        await bot.send_message(chat_id=target_user_id, text=reject_text)
         await callback.message.edit_caption(caption=f"Foydalanuvchi {target_user_id} rad etildi. ❌")
     except Exception:
-        await callback.answer("Xatolik: Foydalanuvchi botni bloklagan.", show_alert=True)
-    await callback.answer()
+        await callback.answer("⚠️ Mijoz botni bloklagan!", show_alert=True)
+    await callback.answer("Rad etildi!")
 
-# Qabul qilish bosilganda
 @dp.callback_query(AdminAction.filter(F.action == "accept"))
 async def admin_accept(callback: CallbackQuery, callback_data: AdminAction, state: FSMContext):
     target_user_id = callback_data.user_id
-    await callback.message.answer("Tavsiflarini bering:")
+    
+    await callback.message.answer(f"✅ <b>Qabul qilindi!</b>\nFoydalanuvchi: <code>{target_user_id}</code>\n\n📝 <i>Endi unga yuboriladigan maxsus tavsifni yozib yuboring:</i>")
     await callback.message.edit_caption(caption=f"Foydalanuvchi {target_user_id} qabul qilindi. Tavsif kutilmoqda... ✅")
     
     await state.set_state(AdminState.waiting_for_description)
     await state.update_data(target_user_id=target_user_id)
     await callback.answer()
 
-# Admin tavsif yuborganda (Mijozga "Signal olish" tugmasi boradi)
 @dp.message(StateFilter(AdminState.waiting_for_description))
 async def handle_admin_description(message: Message, state: FSMContext):
     data = await state.get_data()
     target_user_id = data.get("target_user_id")
     
-    user_text = f"Id ingiz muvaffaqyatli ulandi signal olishingiz mumkin.\n\nMalumotlar:\n{message.text}"
+    user_text = (
+        "🎉 <b>TABRIKLAYMIZ!</b>\n"
+        "Sizning ID raqamingiz muvaffaqiyatli ulandi va tasdiqdan o'tdi.\n\n"
+        "💡 <b>Admin xabari:</b>\n"
+        f"<i>{message.text}</i>\n\n"
+        "👇 <b>Signal olish uchun pastdagi tugmani bosing!</b>"
+    )
     try:
-        # Shu yerda foydalanuvchiga signal_menu ("Signal olish" tugmasi) yuboriladi
         await bot.send_message(chat_id=target_user_id, text=user_text, reply_markup=signal_menu)
-        await message.answer("Xabar va 'Signal olish' tugmasi foydalanuvchiga yuborildi! ✅")
+        await message.answer("✅ Xabar va ⚡️ Signal olish tugmasi mijozga yetkazildi!")
     except Exception:
-        await message.answer("Xatolik: Foydalanuvchi botni bloklagan bo'lishi mumkin.")
+        await message.answer("❌ Xatolik: Foydalanuvchi botni bloklagan ko'rinadi.")
     await state.clear()
 
-
-# ----------------- FLASK SERVER (RENDER UCHUN) -----------------
+# ==========================================
+# 🌐 6. FLASK SERVER (24/7 ISHLASHI UCHUN)
+# ==========================================
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot faol!"
+    return "🚀 Ultimate Premium Bot faol holatda ishlamoqda!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
 
+# ==========================================
+# 🏁 7. BOTNI ISHGA TUSHIRISH (MAIN)
+# ==========================================
 async def main():
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
-    print("Bot yangilangan tartibda ishga tushdi...")
+    
+    print("🚀 Premium bot mukammal dizaynda ishga tushdi...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
-                                                                                   
+    
