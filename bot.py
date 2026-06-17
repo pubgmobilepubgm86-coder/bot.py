@@ -21,7 +21,7 @@ from aiogram.exceptions import TelegramForbiddenError
 # ==========================================
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-BOT_TOKEN = "8897921742:AAEdIDeeiCxlu11mJykdk7QyHuRudrhx2VQ"
+BOT_TOKEN = "8897921742:AAESAkH-sCZB_TairPZDK3B_3_KiGKavDYU"
 ADMIN_ID = 8086545587 
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
