@@ -17,7 +17,7 @@ from aiogram.client.default import DefaultBotProperties
 # ==========================================
 # ⚙️ 1. ASOSIY SOZLAMALAR VA BAZA
 # ==========================================
-BOT_TOKEN = "8897921742:AAHX0mQ6iNYjQAiJwmVdEEvgEovfrJtox0Q"
+BOT_TOKEN = "8897921742:AAEdIDeeiCxlu11mJykdk7QyHuRudrhx2VQ"
 ADMIN_ID = 8086545587  # Xo'jayin ID si
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
