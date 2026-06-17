@@ -599,11 +599,31 @@ async def mines_game(message: Message):
     for step in random.sample(range(25), 3):
         grid[step // 5][step % 5] = "🌟"
         
+    # 🛠 MANA SHU YER TUZATILDI: \n f-string tashqarisiga olib chiqildi
     grid_string = "\n".join(" ".join(row) for row in grid)
+    
     await loading.edit_text(
         f"💣 <b>MINES QUANTUM MAP (3 BOMBAS CODES)</b> 💣\n\n"
         f"{grid_string}\n\n"
         f"⚠️ <i>Faqat ko'rsatilgan yulduzli [🌟] kataklarni bosing!</i>"
+    )
+
+@dp.message(F.text == "☣️ Dark Mines Skaner")
+async def dark_mines_scanner(message: Message):
+    user = db.get_user(message.from_user.id)
+    if not user or user[5] != 1: return
+    
+    grid = [["⬛️" for _ in range(5)] for _ in range(5)]
+    for step in random.sample(range(25), 5):
+        grid[step // 5][step % 5] = "🔥"
+        
+    # 🛠 MANA SHU YER TUZATILDI: \n f-string tashqarisiga olib chiqildi
+    grid_string = "\n".join(" ".join(row) for row in grid)
+        
+    await message.answer(
+        f"💀 <b>DARK NET MINES QUANTUM BREACH</b> 💀\n\n"
+        f"{grid_string}\n\n"
+        f"⚠️ O'ta maxfiy kiber tizim xaritasi."
     )
 
 # =====================================================================
